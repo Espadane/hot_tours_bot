@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 import asyncio
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters import Text
@@ -145,13 +147,9 @@ async def check_new_tours():
                 new_tours, tours_to_check_list, city_id)
             user_ids = get_city_id_from_user(city_id)
             for user_id in user_ids:
-                for new_tour in new_tours_to_user:
-                    price_old = int(new_tour['priceold'])
-                    price = int(new_tour['price'])
-                    discount = int((price_old - price)/(price_old/100))
-                    stars = int(new_tour['hotelstars']) * \
-                        emoji.emojize(':star:')
-                    await bot.send_message(user_id, emoji.emojize(f"{new_tour['countryname']} - {new_tour['hotelregionname']}\nОтель {stars} {new_tour['meal']}\n:airplane: из {new_tour['departurefrom']} :spiral_calendar: {new_tour['flydate']}\n{new_tour['nights']} ночей - <b>{price} ₽</b> за чел.\nСтарая цена - {price_old} ₽ Скидка: {discount} %\n<a href='https://tourvisor.ru/search.php#tvtourid={new_tour['tourid2']}'>Подробнее</a>"), disable_web_page_preview=True, parse_mode='HTML')
+                if len(new_tours_to_user) > 0:
+                    answer = create_new_tours_message(new_tours_to_user)
+                    await bot.send_message(user_id, answer, parse_mode='HTML')
                 for changed_tour in changed_tours_to_user:
                     yesterday_price = changed_tour[1]
                     today_price = changed_tour[2]
@@ -161,9 +159,40 @@ async def check_new_tours():
                     discount = int((price_old - price)/(price_old/100))
                     stars = int(
                         changed_tour[0]['hotelstars']) * emoji.emojize(':star:')
-                    await bot.send_message(user_id, emoji.emojize(f"Цена на тур изменилась:\nБыла - {yesterday_price} руб., а стала - {today_price} руб. Разница {persentage} %\n{changed_tour[0]['countryname']} - {changed_tour[0]['hotelregionname']}\nОтель {stars} {changed_tour[0]['meal']}\n:airplane: из {changed_tour[0]['departurefrom']} :spiral_calendar: {changed_tour[0]['flydate']}\n{changed_tour[0]['nights']} ночей - <b>{price} ₽</b> за чел.\nСтарая цена - {price_old} ₽ Скидка: {discount} %\n<a href='https://tourvisor.ru/search.php#tvtourid={changed_tour[0]['tourid2']}'>Подробнее</a>"), disable_web_page_preview=True, parse_mode='HTML')
+                    await bot.send_message(user_id, emoji.emojize(f"Цена на тур изменилась:\nБыла - {yesterday_price} руб., а стала - {today_price} руб. Разница {persentage} %\n{changed_tour[0]['countryname']} - {changed_tour[0]['hotelregionname']}\nОтель {stars} {changed_tour[0]['meal']}\n:airplane: из {changed_tour[0]['departurefrom']} :spiral_calendar: {changed_tour[0]['flydate']}\n{changed_tour[0]['nights']} ночей - <b>{price} ₽</b> за чел.\Первоначальная цена - {price_old} ₽ Скидка: {discount} %\n<a href='https://tourvisor.ru/search.php#tvtourid={changed_tour[0]['tourid2']}'>Подробнее</a>"), disable_web_page_preview=True, parse_mode='HTML')
 
         await asyncio.sleep(300)
+
+
+def create_new_tours_message(new_tours_to_user):
+    depurture_city_from = new_tours_to_user[0]['departurefrom']
+    destinations = []
+    prices = []
+    counter = []
+    dates = []
+    for new_tour in new_tours_to_user:
+        destination = f'{new_tour["countryname"]}/{new_tour["hotelregionname"]}'
+        min_price = new_tour['price']
+        date = new_tour['flydate']
+        if destination in destinations:
+            double_index = destinations.index(destination)
+            if min_price < prices[double_index]:
+                prices[double_index] = min_price
+            counter[double_index] += 1
+            dates[double_index] = date
+        else:
+            destinations.append(destination)
+            prices.append(min_price)
+            counter.append(1)
+            dates.append(date)
+    new_tours_list = []
+    for d, p, c, dt in zip(destinations, prices, counter, dates):
+        new_tours_list.append(
+            f'<b>{d}</b> - {c}\nМин: {p} руб. {dt}\n==============\n')
+
+    answer = f'Появились новые туры с вылетом из {depurture_city_from}:\n\n{"".join(new_tours_list)}'
+
+    return answer
 
 
 if __name__ == '__main__':
@@ -171,6 +200,3 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.create_task(check_new_tours())
     executor.start_polling(dp)
-
-
-# не забудь реквайрементс тхт
